@@ -71,3 +71,15 @@ async def test_malformed_later_v2_page_raises() -> None:
     manager._connection.request.side_effect = [{"data": [{"id": f"e{i}"} for i in range(100)]}, {"oops": 1}]
     with pytest.raises(UniFiMalformedResponseError):
         await manager.get_events(limit=150)
+
+
+@pytest.mark.asyncio
+async def test_empty_critical_log_is_empty_but_empty_all_log_is_malformed() -> None:
+    manager = _manager(True, [])
+
+    with pytest.raises(UniFiMalformedResponseError):
+        await manager.get_events(limit=10)
+
+    page = await manager.get_alarms_page(limit=10)
+    assert page.rows == []
+    assert page.total_reported == 0

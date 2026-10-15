@@ -73,6 +73,8 @@ def _v2_page(response: Any, endpoint: str) -> _V2Page:
     """
     envelope: Any = response
     if isinstance(response, list):
+        if not response and endpoint == "/system-log/critical":
+            return _V2Page(rows=[], total_elements=0, total_pages=0)
         if len(response) != 1 or not isinstance(response[0], dict):
             raise UniFiMalformedResponseError(f"Unexpected response shape from {endpoint}")
         envelope = response[0]
