@@ -41,9 +41,9 @@ async def test_valid_empty_collections_are_empty(use_v2, response) -> None:
     ("use_v2", "response"),
     [
         (True, {"unexpected": "envelope"}),
-        (True, [{"unexpected": "envelope"}]),
-        (True, []),
         (True, [{"data": []}, {"data": []}]),
+        (True, [{"data": []}, {"id": "alarm-1"}]),
+        (True, ["invalid row"]),
         (True, [{"total_element_count": 3}]),
         (True, {"data": "invalid"}),
         (True, {"logs": {"not": "a list"}}),
@@ -76,10 +76,29 @@ async def test_malformed_later_v2_page_raises() -> None:
 @pytest.mark.asyncio
 async def test_empty_critical_log_is_empty_but_empty_all_log_is_malformed() -> None:
     manager = _manager(True, [])
-
     with pytest.raises(UniFiMalformedResponseError):
         await manager.get_events(limit=10)
-
     page = await manager.get_alarms_page(limit=10)
     assert page.rows == []
     assert page.total_reported == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("response", "expected_rows"),
+    [
+        ([{"id": "alarm-1", "severity": "HIGH"}], [{"id": "alarm-1", "severity": "HIGH"}]),
+        (
+            [{"id": "alarm-1", "severity": "HIGH"}, {"id": "alarm-2", "severity": "VERY_HIGH"}],
+            [{"id": "alarm-1", "severity": "HIGH"}, {"id": "alarm-2", "severity": "VERY_HIGH"}],
+        ),
+        ([{"data": [{"id": "alarm-1"}], "total_element_count": 1, "total_page_count": 1}], [{"id": "alarm-1"}]),
+    ],
+)
+async def test_critical_log_accepts_bare_rows_and_wrapped_envelope(response, expected_rows) -> None:
+    manager = _manager(True, response)
+
+    page = await manager.get_alarms_page(limit=10)
+
+    assert page.rows == expected_rows
+    assert page.total_reported == len(expected_rows)
