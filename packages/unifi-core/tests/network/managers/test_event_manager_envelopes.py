@@ -85,20 +85,34 @@ async def test_empty_critical_log_is_empty_but_empty_all_log_is_malformed() -> N
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("response", "expected_rows"),
+    ("response", "expected_rows", "expected_total"),
     [
-        ([{"id": "alarm-1", "severity": "HIGH"}], [{"id": "alarm-1", "severity": "HIGH"}]),
+        ([{"id": "alarm-1", "severity": "HIGH"}], [{"id": "alarm-1", "severity": "HIGH"}], None),
         (
             [{"id": "alarm-1", "severity": "HIGH"}, {"id": "alarm-2", "severity": "VERY_HIGH"}],
             [{"id": "alarm-1", "severity": "HIGH"}, {"id": "alarm-2", "severity": "VERY_HIGH"}],
+            None,
         ),
-        ([{"data": [{"id": "alarm-1"}], "total_element_count": 1, "total_page_count": 1}], [{"id": "alarm-1"}]),
+        ([{"data": [{"id": "alarm-1"}], "total_element_count": 1, "total_page_count": 1}], [{"id": "alarm-1"}], 1),
     ],
 )
-async def test_critical_log_accepts_bare_rows_and_wrapped_envelope(response, expected_rows) -> None:
+async def test_critical_log_accepts_bare_rows_and_wrapped_envelope(response, expected_rows, expected_total) -> None:
     manager = _manager(True, response)
 
     page = await manager.get_alarms_page(limit=10)
 
     assert page.rows == expected_rows
-    assert page.total_reported == len(expected_rows)
+    assert page.total_reported == expected_total
+    assert page.has_more is False
+
+
+@pytest.mark.asyncio
+async def test_full_page_of_bare_critical_rows_leaves_totals_and_more_unknown() -> None:
+    rows = [{"id": f"alarm-{i}", "severity": "HIGH"} for i in range(10)]
+    manager = _manager(True, rows)
+
+    page = await manager.get_alarms_page(limit=10)
+
+    assert page.rows == rows
+    assert page.total_reported is None
+    assert page.has_more is None

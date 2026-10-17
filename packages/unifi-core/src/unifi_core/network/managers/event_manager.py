@@ -69,9 +69,10 @@ def _v2_page(response: Any, endpoint: str) -> _V2Page:
     ``ApiRequestV2.decode`` wraps an object body as ``[body]`` and
     ``ConnectionManager.request`` returns that list, so the envelope arrives
     as the single element of a list (tests may pass the bare object). The
-    critical endpoint also returns bare row lists; other endpoints require
-    an envelope whose rows are under ``data`` or ``logs``. Unknown envelopes
-    and non-list collections are malformed, never empty.
+    critical endpoint also returns bare row lists, which carry no totals, so
+    their counts stay unknown; other endpoints require an envelope whose rows
+    are under ``data`` or ``logs``. Unknown envelopes and non-list collections
+    are malformed, never empty.
     """
     envelope: Any = response
     if isinstance(response, list):
@@ -88,7 +89,7 @@ def _v2_page(response: Any, endpoint: str) -> _V2Page:
             else:
                 if any(not _V2_CRITICAL_ROW_KEYS & item.keys() for item in response):
                     raise UniFiMalformedResponseError(f"Unexpected response shape from {endpoint}")
-                return _V2Page(rows=response, total_elements=len(response), total_pages=1)
+                return _V2Page(rows=response, total_elements=None, total_pages=None)
         else:
             if len(response) != 1 or not isinstance(response[0], dict):
                 raise UniFiMalformedResponseError(f"Unexpected response shape from {endpoint}")
